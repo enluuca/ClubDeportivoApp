@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <!-- Colores base de la App (Ejemplos, puedes cambiarlos) -->
+    <color name="colorPrimary">#3F51B5</color>
+    <color name="colorPrimaryDark">#303F9F</color>
+    <color name="colorAccent">#FF4081</color>
+    <!-- Colores para el estado de Socio (Verde) -->
+    <color name="color_socio">#37D124</color>
+    <!-- Colores para el estado de No Socio (Gris/Inactivo) -->
+    <color name="color_no_socio">#757575</color>
+    <color name="color_moroso">#D32F2F</color>
+    <color name="primary_color">#6200EE</color> <color name="accent_color">#FF9800</color>
+    <color name="red">#F44336</color>
+    <color name="green_dark">#00796B</color>
+</resources>
