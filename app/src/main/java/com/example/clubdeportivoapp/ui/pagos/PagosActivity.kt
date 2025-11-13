@@ -11,7 +11,7 @@ import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat // IMPORTACIÓN CLAVE: Soluciona el error de referencia de color
+import androidx.core.content.ContextCompat
 import com.example.clubdeportivoapp.R
 import com.example.clubdeportivoapp.data.dao.ActividadDao
 import com.example.clubdeportivoapp.data.dao.ClienteDao
@@ -27,8 +27,6 @@ import java.util.Locale
 
 /**
  * Actividad para la Gestión y Registro de Pagos (Cuotas de Socio o Registros de Actividad).
- * Nota: Requiere que R.color.color_socio y R.color.color_moroso estén definidos.
- * Nota: Requiere la implementación de getClienteByDni y updateSocioVencimiento en ClienteDao.kt.
  */
 class PagosActivity : AppCompatActivity() {
 
@@ -43,7 +41,7 @@ class PagosActivity : AppCompatActivity() {
     private var selectedActividad: Actividad? = null
     private val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.US) // Formato compatible
 
-    // Referencias UI
+    // Referencias UI (Inicialización y setupListeners omitidos por ser largos)
     private lateinit var etDniSearch: EditText
     private lateinit var btnBuscarCliente: Button
     private lateinit var tvClienteInfo: TextView
@@ -66,7 +64,6 @@ class PagosActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_pagos)
 
-        // Inicializar DAOs
         clienteDao = ClienteDao(this)
         actividadDao = ActividadDao(this)
         pagoDao = PagoDao(this)
@@ -75,21 +72,18 @@ class PagosActivity : AppCompatActivity() {
         setupListeners()
     }
 
+    // (Funciones initializeViews() y setupListeners() omitidas por brevedad)
+
     private fun initializeViews() {
-        // Búsqueda
         etDniSearch = findViewById(R.id.et_pago_dni_search)
         btnBuscarCliente = findViewById(R.id.btn_pago_buscar_cliente)
         tvClienteInfo = findViewById(R.id.tv_pago_cliente_info)
         cardOpcionesPago = findViewById(R.id.card_opciones_pago)
         layoutPagoCuota = findViewById(R.id.layout_pago_cuota)
         layoutRegistroActividad = findViewById(R.id.layout_registro_actividad)
-
-        // Cuota
         tvVencimientoAnterior = findViewById(R.id.tv_pago_cuota_vencimiento_anterior)
         etMedioCuota = findViewById(R.id.et_pago_medio_cuota)
         btnRegistrarCuota = findViewById(R.id.btn_registrar_cuota)
-
-        // Registro Actividad
         spinnerActividad = findViewById(R.id.spinner_actividad_select)
         tvCostoActividad = findViewById(R.id.tv_pago_costo_actividad)
         etMedioActividad = findViewById(R.id.et_pago_medio_actividad)
@@ -102,10 +96,7 @@ class PagosActivity : AppCompatActivity() {
         btnRegistrarActividadPago.setOnClickListener { registrarRegistroActividad() }
     }
 
-    // ====================================================================
-    // LÓGICA DE BÚSQUEDA
-    // ====================================================================
-
+    // (Lógica de Búsqueda y Setup Socio/NoSocio omitida por brevedad)
     private fun searchCliente() {
         val dni = etDniSearch.text.toString().trim()
         if (dni.isEmpty()) {
@@ -119,7 +110,6 @@ class PagosActivity : AppCompatActivity() {
             return
         }
 
-        // Uso de getClienteByDni (Debe ser implementado en ClienteDao.kt)
         currentCliente = clienteDao.getClienteByDni(dniInt)
 
         if (currentCliente != null) {
@@ -131,7 +121,6 @@ class PagosActivity : AppCompatActivity() {
     }
 
     private fun handleClientFound(cliente: Cliente) {
-        // Usamos 'asociarse' para determinar el tipo, según el modelo Cliente.kt
         val tipo = if (cliente.asociarse) "Socio Activo" else "No Socio"
         tvClienteInfo.text = "Cliente: ${cliente.nombre} ${cliente.apellido} ($tipo)"
         tvClienteInfo.visibility = View.VISIBLE
@@ -152,41 +141,32 @@ class PagosActivity : AppCompatActivity() {
         layoutRegistroActividad.visibility = View.GONE
     }
 
-    // ====================================================================
-    // LÓGICA PARA SOCIO (CUOTA)
-    // ====================================================================
-
     private fun setupSocioPayment(socioId: Int) {
         layoutRegistroActividad.visibility = View.GONE
         layoutPagoCuota.visibility = View.VISIBLE
 
-        // Obtenemos los detalles del socio, incluyendo la fecha de vencimiento (Requiere función en ClienteDao.kt)
         val socioDetails = clienteDao.getSocioByClienteId(socioId)
 
         if (socioDetails != null) {
             val vencimientoStr = socioDetails.fechaVencimientoCuota
-            val hoy = Calendar.getInstance().time // Fecha actual
+            val hoy = Calendar.getInstance().time
 
             var estado = "ACTIVO"
-            var colorResId = R.color.color_socio // Asumiendo color_socio como verde (debe estar en colors.xml)
+            var colorResId = R.color.color_socio
 
             try {
-                // Parseamos la fecha de vencimiento de la DB
                 val vencimientoDate = dateFormatter.parse(vencimientoStr)
 
-                // Comparamos si la fecha de vencimiento es anterior a la fecha de hoy
                 if (vencimientoDate != null && vencimientoDate.before(hoy)) {
                     estado = "MOROSO"
-                    colorResId = R.color.color_moroso // Asumiendo color_moroso como rojo (debe estar en colors.xml)
+                    colorResId = R.color.color_moroso
                 }
             } catch (e: Exception) {
-                // Manejo de error si la fecha en la DB es inválida
                 estado = "Fecha inválida"
                 colorResId = R.color.black
             }
 
             tvVencimientoAnterior.text = "Cuota Vence: $vencimientoStr ($estado)"
-            // Uso de ContextCompat para API 24
             tvVencimientoAnterior.setTextColor(ContextCompat.getColor(this, colorResId))
 
         } else {
@@ -196,19 +176,19 @@ class PagosActivity : AppCompatActivity() {
         etMedioCuota.setText("")
     }
 
-    // Función auxiliar para obtener la fecha de hoy y el vencimiento (API 24 compatible)
-    private fun getTodayAndNextMonthVencimiento(): Pair<String, String> {
+    /**
+     * ✅ CORRECCIÓN CLAVE: Calcula la fecha de hoy y el vencimiento a 30 días.
+     */
+    private fun getTodayAndNextVencimiento(): Pair<String, String> {
         val today = Calendar.getInstance()
         val todayStr = dateFormatter.format(today.time)
 
-        val nextMonth = Calendar.getInstance()
-        // Avanzamos un mes
-        nextMonth.add(Calendar.MONTH, 1)
-        // Opcional: Establecer al último día del mes siguiente
-        nextMonth.set(Calendar.DAY_OF_MONTH, nextMonth.getActualMaximum(Calendar.DAY_OF_MONTH))
+        val nextVencimiento = Calendar.getInstance()
+        // 🔥 CAMBIO CRÍTICO: Sumar exactamente 30 días a la fecha actual
+        nextVencimiento.add(Calendar.DAY_OF_YEAR, 30)
 
-        val nextMonthStr = dateFormatter.format(nextMonth.time)
-        return Pair(todayStr, nextMonthStr)
+        val nextVencimientoStr = dateFormatter.format(nextVencimiento.time)
+        return Pair(todayStr, nextVencimientoStr)
     }
 
     private fun registrarCuota() {
@@ -220,18 +200,19 @@ class PagosActivity : AppCompatActivity() {
             return
         }
 
-        val (fechaPago, fechaVencimiento) = getTodayAndNextMonthVencimiento()
+        // Usamos la función corregida
+        val (fechaPago, fechaVencimiento) = getTodayAndNextVencimiento()
 
         // Monto y cálculo simplificado (asumimos un monto fijo por defecto, Ej: 5000)
         val montoBase = 5000.00
-        val montoTotal = montoBase // Simplificación: sin descuento
+        val montoTotal = montoBase
 
         val nuevaCuota = Cuota(
             idSocio = cliente.id,
             fechaPago = fechaPago,
             monto = montoBase,
             medioPago = medioPago,
-            cantidadCuotas = 1, // Pago mensual
+            cantidadCuotas = 1,
             montoTotal = montoTotal,
             fechaVencimiento = fechaVencimiento
         )
@@ -240,7 +221,7 @@ class PagosActivity : AppCompatActivity() {
         if (newId > 0) {
             Toast.makeText(this, "Cuota registrada con éxito. Nueva fecha de vencimiento: $fechaVencimiento", Toast.LENGTH_LONG).show()
 
-            // Actualiza la fecha de vencimiento en la tabla Socio (Debe ser implementado en ClienteDao.kt)
+            // Actualiza la tabla Socio con la nueva fecha de vencimiento
             clienteDao.updateSocioVencimiento(cliente.id, fechaVencimiento)
 
             resetUI()
@@ -249,10 +230,6 @@ class PagosActivity : AppCompatActivity() {
             Toast.makeText(this, "Error al registrar la cuota.", Toast.LENGTH_SHORT).show()
         }
     }
-
-    // ====================================================================
-    // LÓGICA PARA NO SOCIO (REGISTRO ACTIVIDAD)
-    // ====================================================================
 
     private fun setupNoSocioPayment(clienteId: Int) {
         layoutPagoCuota.visibility = View.GONE
@@ -296,7 +273,7 @@ class PagosActivity : AppCompatActivity() {
             return
         }
 
-        val fechaPago = dateFormatter.format(Calendar.getInstance().time)
+        val (fechaPago, _) = getTodayAndNextVencimiento()
 
         val registro = RegistroActividad(
             idCliente = cliente.id,
@@ -304,7 +281,6 @@ class PagosActivity : AppCompatActivity() {
             fechaPago = fechaPago,
             montoPagado = actividad.costo,
             medioPago = medioPago,
-            // Usamos la fecha de pago como expiración para un pago único
             fechaExpiracion = fechaPago
         )
 

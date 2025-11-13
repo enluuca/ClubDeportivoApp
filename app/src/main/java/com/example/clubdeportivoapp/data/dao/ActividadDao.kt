@@ -2,12 +2,14 @@ package com.example.clubdeportivoapp.data.dao
 
 import android.content.ContentValues
 import android.content.Context
+import android.database.Cursor
 import com.example.clubdeportivoapp.data.db.DatabaseHelper
 import com.example.clubdeportivoapp.data.model.Actividad
 
 /**
+ * [Clase de Nivel Intermedio]
  * Data Access Object (DAO) para la entidad Actividad.
- * Implementa las operaciones CRUD para la tabla 'Actividad'.
+ * * Responsable de: Implementar las operaciones CRUD para la tabla 'Actividad'.
  */
 class ActividadDao(context: Context) {
 
@@ -18,7 +20,7 @@ class ActividadDao(context: Context) {
     /**
      * Convierte una fila de la base de datos (Cursor) en un objeto Actividad.
      */
-    private fun cursorToActividad(cursor: android.database.Cursor): Actividad {
+    private fun cursorToActividad(cursor: Cursor): Actividad {
         return Actividad(
             id = cursor.getInt(cursor.getColumnIndexOrThrow(DatabaseHelper.ACTIVIDAD_COL_ID)),
             nombre = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.ACTIVIDAD_COL_NOMBRE)),
@@ -38,6 +40,7 @@ class ActividadDao(context: Context) {
             put(DatabaseHelper.ACTIVIDAD_COL_NOMBRE, actividad.nombre)
             put(DatabaseHelper.ACTIVIDAD_COL_COSTO, actividad.costo)
         }
+        // Retorna el ID de la fila insertada.
         return db.insert(DatabaseHelper.TABLE_ACTIVIDAD, null, values)
     }
 
@@ -46,6 +49,7 @@ class ActividadDao(context: Context) {
      */
     fun getActividadById(id: Int): Actividad? {
         val db = dbHelper.readableDatabase
+        // Uso de 'use' para asegurar que el Cursor se cierre automáticamente (Mejor práctica).
         val cursor = db.query(
             DatabaseHelper.TABLE_ACTIVIDAD,
             null,
@@ -54,13 +58,14 @@ class ActividadDao(context: Context) {
             null, null, null
         )
 
-        val actividad = if (cursor.moveToFirst()) {
-            cursorToActividad(cursor)
-        } else {
-            null
+        // Refactorización: Uso de 'use' para cerrar el cursor.
+        return cursor.use {
+            if (it.moveToFirst()) {
+                cursorToActividad(it)
+            } else {
+                null
+            }
         }
-        cursor.close()
-        return actividad
     }
 
     /**
@@ -72,10 +77,11 @@ class ActividadDao(context: Context) {
         val cursor = db.query(
             DatabaseHelper.TABLE_ACTIVIDAD,
             null, null, null, null, null,
-            "${DatabaseHelper.ACTIVIDAD_COL_NOMBRE} ASC"
+            "${DatabaseHelper.ACTIVIDAD_COL_NOMBRE} ASC" // Ordena por nombre
         )
 
-        cursor?.use {
+        // Uso de 'use' para garantizar que el Cursor se cierre correctamente
+        cursor.use {
             while (it.moveToNext()) {
                 actividades.add(cursorToActividad(it))
             }

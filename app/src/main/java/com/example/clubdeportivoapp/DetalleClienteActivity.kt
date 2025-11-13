@@ -31,6 +31,7 @@ import java.util.Date
 import java.util.Locale
 
 /**
+ * [Clase de Nivel Intermedio/Avanzado]
  * Actividad para Añadir o Editar los datos de un Cliente.
  * Incluye la funcionalidad de generar, previsualizar y compartir una credencial.
  */
@@ -47,7 +48,7 @@ class DetalleClienteActivity : AppCompatActivity() {
     private lateinit var etDni: EditText
     private lateinit var etNombre: EditText
     private lateinit var etApellido: EditText
-    private lateinit var etFechaNacimiento: EditText
+    private lateinit var etFechaNacimiento: EditText // Campo clave
     private lateinit var etDireccion: EditText
     private lateinit var etTelefono: EditText
     private lateinit var cbAptoFisico: CheckBox
@@ -55,11 +56,11 @@ class DetalleClienteActivity : AppCompatActivity() {
     private lateinit var rbSocio: RadioButton
     private lateinit var rbNoSocio: RadioButton
     private lateinit var layoutSocioDetails: LinearLayout
-    private lateinit var etVencimientoCuota: EditText
+    private lateinit var etVencimientoCuota: EditText // Campo clave
     private lateinit var cbCarnetEntregado: CheckBox
     private lateinit var btnGuardar: Button
     private lateinit var btnGenerarCredencial: Button
-    private lateinit var temporaryCredencialLayout: View // Contenedor para inflar activity_credencial.xml
+    private lateinit var temporaryCredencialLayout: View
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -68,7 +69,6 @@ class DetalleClienteActivity : AppCompatActivity() {
         clienteDao = ClienteDao(this)
         clienteId = intent.getIntExtra(ClientesActivity.EXTRA_CLIENTE_ID, -1)
 
-        // Inicializar la vista de la credencial (activity_credencial.xml)
         temporaryCredencialLayout = layoutInflater.inflate(R.layout.activity_credencial, null)
 
         initializeViews()
@@ -83,12 +83,11 @@ class DetalleClienteActivity : AppCompatActivity() {
     }
 
     private fun initializeViews() {
-        // Inicializaciones de vistas omitidas por brevedad, asumiendo IDs de activity_detalle_cliente.xml
         tvHeader = findViewById(R.id.tv_detalle_header)
         etDni = findViewById(R.id.et_dni)
         etNombre = findViewById(R.id.et_nombre)
         etApellido = findViewById(R.id.et_apellido)
-        etFechaNacimiento = findViewById(R.id.et_fecha_nacimiento)
+        etFechaNacimiento = findViewById(R.id.et_fecha_nacimiento) // CLAVE
         etDireccion = findViewById(R.id.et_direccion)
         etTelefono = findViewById(R.id.et_telefono)
         cbAptoFisico = findViewById(R.id.cb_apto_fisico)
@@ -96,18 +95,23 @@ class DetalleClienteActivity : AppCompatActivity() {
         rbSocio = findViewById(R.id.rb_socio)
         rbNoSocio = findViewById(R.id.rb_no_socio)
         layoutSocioDetails = findViewById(R.id.layout_socio_details)
-        etVencimientoCuota = findViewById(R.id.et_vencimiento_cuota)
+        etVencimientoCuota = findViewById(R.id.et_vencimiento_cuota) // CLAVE
         cbCarnetEntregado = findViewById(R.id.cb_carnet_entregado)
         btnGuardar = findViewById(R.id.btn_guardar_cliente)
         btnGenerarCredencial = findViewById(R.id.btn_generar_credencial)
     }
 
     private fun setupListeners() {
-        // Setup Listeners omitidos por brevedad
-        // ...
+        rgMembresia.setOnCheckedChangeListener { _, checkedId ->
+            layoutSocioDetails.visibility = if (checkedId == R.id.rb_socio) View.VISIBLE else View.GONE
+        }
+
+        // 🔥 CORRECCIÓN CLAVE: Asignar el Listener de clic al campo de fecha
+        etFechaNacimiento.setOnClickListener { showDatePickerDialog(it as EditText) }
+        etVencimientoCuota.setOnClickListener { showDatePickerDialog(it as EditText) }
+
         btnGuardar.setOnClickListener { saveOrUpdateCliente() }
         btnGenerarCredencial.setOnClickListener { showCredentialPreview() }
-        // ...
     }
 
     private fun loadClienteData(id: Int) {
@@ -131,12 +135,21 @@ class DetalleClienteActivity : AppCompatActivity() {
     }
 
     private fun fillForm(cliente: Cliente) {
-        // Lógica de llenado de formulario omitida por brevedad
         etDni.setText(cliente.dni.toString())
         etNombre.setText(cliente.nombre)
         etApellido.setText(cliente.apellido)
-        // ...
-        if (cliente.asociarse) rbSocio.isChecked = true else rbNoSocio.isChecked = true
+        etFechaNacimiento.setText(cliente.fechaNacimiento)
+        etDireccion.setText(cliente.direccion)
+        etTelefono.setText(cliente.telefono)
+        cbAptoFisico.isChecked = cliente.aptoFisico
+
+        if (cliente.asociarse) {
+            rbSocio.isChecked = true
+            layoutSocioDetails.visibility = View.VISIBLE
+        } else {
+            rbNoSocio.isChecked = true
+            layoutSocioDetails.visibility = View.GONE
+        }
     }
 
     private fun saveOrUpdateCliente() {
@@ -150,13 +163,14 @@ class DetalleClienteActivity : AppCompatActivity() {
         if (clienteId == -1) {
             val nuevoId = clienteDao.insertCliente(cliente = nuevoClienteBase, socioData = socioData, noSocioData = noSocioData)
             success = nuevoId > 0
+            if (success) Toast.makeText(this, "Cliente y membresía guardados con éxito.", Toast.LENGTH_LONG).show()
         } else {
             val rowsAffected = clienteDao.updateCliente(nuevoClienteBase.copy(id = clienteId))
             success = rowsAffected > 0
+            if (success) Toast.makeText(this, "Cliente actualizado con éxito.", Toast.LENGTH_LONG).show()
         }
 
         if (success) {
-            Toast.makeText(this, "Cliente guardado/actualizado con éxito.", Toast.LENGTH_LONG).show()
             finish()
         } else {
             Toast.makeText(this, "Error al guardar/actualizar el cliente. Verifique el DNI.", Toast.LENGTH_LONG).show()
@@ -168,25 +182,19 @@ class DetalleClienteActivity : AppCompatActivity() {
     private fun showCredentialPreview() {
         val cliente = loadedCliente ?: return Toast.makeText(this, "Debe cargar el cliente.", Toast.LENGTH_SHORT).show()
 
-        // 1. Rellenar la vista de la credencial con datos
         val credencialView = fillCredentialView(cliente, temporaryCredencialLayout)
 
-        // 2. Inflar el layout del diálogo
         val dialogView = layoutInflater.inflate(R.layout.dialog_credencial_preview, null)
         val container = dialogView.findViewById<FrameLayout>(R.id.frame_credencial_container)
         val btnShare = dialogView.findViewById<Button>(R.id.btn_share_from_preview)
 
-        // 3. Añadir la credencial rellenada al contenedor del diálogo
         (credencialView.parent as? ViewGroup)?.removeView(credencialView)
         container.addView(credencialView)
 
-        // 4. Crear y mostrar el AlertDialog
         val dialog = AlertDialog.Builder(this).setView(dialogView).setCancelable(true).create()
         dialog.show()
 
-        // 5. Configurar el Listener para Compartir
         btnShare.setOnClickListener {
-            // Llamamos a la lógica de compartir, pasando el diálogo para cerrarlo
             checkStoragePermission(dialog)
         }
     }
@@ -209,10 +217,8 @@ class DetalleClienteActivity : AppCompatActivity() {
 
     private fun checkStoragePermission(dialog: AlertDialog) {
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P && ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-            // Si no hay permiso, lo solicitamos. La respuesta llama a onRequestPermissionsResult.
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), STORAGE_PERMISSION_CODE)
         } else {
-            // Si hay permiso, compartimos
             shareCredencial(dialog)
         }
     }
@@ -221,7 +227,6 @@ class DetalleClienteActivity : AppCompatActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == STORAGE_PERMISSION_CODE) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Si el permiso se concede, compartimos (el diálogo no está disponible aquí, usaríamos una bandera)
                 Toast.makeText(this, "Permiso concedido. Vuelva a presionar Compartir.", Toast.LENGTH_SHORT).show()
             } else {
                 Toast.makeText(this, "Permiso de almacenamiento denegado. No se puede compartir.", Toast.LENGTH_LONG).show()
@@ -229,28 +234,22 @@ class DetalleClienteActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Captura el Bitmap del currentCredencialView y lo comparte.
-     */
     private fun shareCredencial(dialog: AlertDialog?) {
         val cliente = loadedCliente ?: return
 
-        // 1. Generar el Bitmap (Captura la vista que está en el contenedor del diálogo)
         val bitmap = createBitmapFromView(temporaryCredencialLayout, 600, 350)
 
-        // 2. Guardar el Bitmap y obtener la URI
         val imageUri = saveBitmapToFile(bitmap, "${cliente.apellido}_${cliente.dni}_credencial.png")
 
         if (imageUri != null) {
             shareImage(imageUri, cliente.nombre)
-            dialog?.dismiss() // Cerrar el diálogo después de iniciar el Intent de compartir
+            dialog?.dismiss()
         } else {
             Toast.makeText(this, "Fallo al generar el archivo de credencial.", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun createBitmapFromView(view: View, width: Int, height: Int): Bitmap {
-        // Forzamos la medición para la captura precisa
         view.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY))
         view.layout(0, 0, view.getMeasuredWidth(), view.getMeasuredHeight())

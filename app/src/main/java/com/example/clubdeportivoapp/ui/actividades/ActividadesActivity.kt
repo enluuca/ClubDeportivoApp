@@ -16,51 +16,65 @@ import com.example.clubdeportivoapp.data.model.Actividad
 import java.util.Locale
 
 /**
- * Actividad para la Gestión y Listado de Actividades.
- * Responde al botón "Actividades" del MenuPrincipalActivity.
+ * [Clase de Nivel Intermedio]
+ * Actividad principal para la Gestión y Listado de Actividades.
+ * * Responsable de: Mostrar el listado, manejar la búsqueda y la navegación al detalle.
  */
 class ActividadesActivity : AppCompatActivity() {
 
-    // Constante para el ID de actividad que se pasa entre actividades
+    // Constante para identificar el ID de la actividad al navegar
     companion object {
         const val EXTRA_ACTIVIDAD_ID = "ACTIVIDAD_ID"
     }
 
     private lateinit var actividadDao: ActividadDao
     private lateinit var actividadesAdapter: ActividadesAdapter
+    // Referencias a elementos de la UI
     private lateinit var rvActividades: RecyclerView
     private lateinit var tvEmptyState: TextView
     private lateinit var etSearchActividad: EditText
     private lateinit var btnAddActividad: Button
+    // Lista completa de actividades cargadas de la DB
     private var allActividades: List<Actividad> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_actividades) // Layout: activity_actividades.xml
 
-        // Inicialización de DAO y referencias de UI
+        // Inicialización del DAO (dependencia principal de datos)
         actividadDao = ActividadDao(this)
-        rvActividades = findViewById(R.id.rv_actividades)
-        tvEmptyState = findViewById(R.id.tv_actividades_empty_state)
-        etSearchActividad = findViewById(R.id.et_search_actividad)
-        btnAddActividad = findViewById(R.id.btn_add_actividad)
 
+        // Inicialización de la UI
+        initializeViews()
         setupRecyclerView()
         setupSearchListener()
         setupAddButton()
 
-        // El ActionBar/Toolbar podría configurarse aquí
         supportActionBar?.title = "Gestión de Actividades"
+    }
+
+    /**
+     * Inicializa las referencias a las vistas mediante findViewById.
+     */
+    private fun initializeViews() {
+        rvActividades = findViewById(R.id.rv_actividades)
+        tvEmptyState = findViewById(R.id.tv_actividades_empty_state)
+        etSearchActividad = findViewById(R.id.et_search_actividad)
+        btnAddActividad = findViewById(R.id.btn_add_actividad)
     }
 
     override fun onResume() {
         super.onResume()
         // Cargar los datos cada vez que la actividad se hace visible (al volver de edición/adición)
+        // Esto asegura que la lista esté siempre actualizada.
         loadActividades()
     }
 
+    /**
+     * Configura el RecyclerView, el LayoutManager y el Adapter.
+     */
     private fun setupRecyclerView() {
-        // Callback para el clic en un ítem (navegación al detalle/edición)
+        // Inicializamos el Adapter con el callback de clic
         actividadesAdapter = ActividadesAdapter(allActividades) { actividad ->
             navigateToDetalleActividad(actividad.id)
         }
@@ -68,37 +82,43 @@ class ActividadesActivity : AppCompatActivity() {
         rvActividades.adapter = actividadesAdapter
     }
 
+    /**
+     * Configura el listener de búsqueda para filtrar la lista al escribir.
+     */
     private fun setupSearchListener() {
         etSearchActividad.doAfterTextChanged { text ->
             filterActividades(text.toString())
         }
     }
 
+    /**
+     * Configura el botón Añadir para navegar a la actividad de detalle en modo inserción.
+     */
     private fun setupAddButton() {
-        // Navegación a la actividad de Adición (sin pasar ID)
         btnAddActividad.setOnClickListener {
-            navigateToDetalleActividad(actividadId = -1)
+            navigateToDetalleActividad(actividadId = -1) // -1 indica nuevo registro
         }
     }
 
     /**
-     * Carga todas las actividades de la base de datos y actualiza la lista.
+     * Carga todas las actividades de la base de datos y actualiza la lista del adaptador.
      */
     private fun loadActividades() {
-        // Nota: Las operaciones de DB se mantienen en el hilo principal para simplicidad.
+        // Nota: La llamada a la DB se realiza en el hilo principal (simple)
         allActividades = actividadDao.getAllActividades()
         actividadesAdapter.updateActividades(allActividades)
         updateEmptyState()
-        etSearchActividad.setText("") // Limpia la búsqueda
+        etSearchActividad.setText("") // Limpia el campo de búsqueda después de recargar
     }
 
     /**
-     * Filtra la lista de actividades basándose en el texto de búsqueda (por nombre).
+     * Filtra la lista completa (allActividades) basándose en el texto de búsqueda.
      */
     private fun filterActividades(query: String) {
         val queryLower = query.lowercase(Locale.getDefault())
 
         val filteredList = allActividades.filter { actividad ->
+            // Si la consulta está vacía, muestra todos. Si no, compara el nombre en minúsculas.
             query.isEmpty() ||
                     actividad.nombre.lowercase(Locale.getDefault()).contains(queryLower)
         }
@@ -108,22 +128,19 @@ class ActividadesActivity : AppCompatActivity() {
     }
 
     /**
-     * Actualiza la visibilidad del mensaje de lista vacía.
+     * Actualiza la visibilidad del mensaje de lista vacía según el estado actual de la lista.
      */
     private fun updateEmptyState(isFilteredEmpty: Boolean = allActividades.isEmpty()) {
         tvEmptyState.visibility = if (isFilteredEmpty) View.VISIBLE else View.GONE
     }
 
     /**
-     * Navega a la actividad de detalle/edición/adición de actividad.
-     * @param actividadId El ID de la actividad. Usa -1 para indicar una nueva.
+     * Navega a la actividad de detalle/edición, pasando el ID de la actividad.
      */
     private fun navigateToDetalleActividad(actividadId: Int) {
-        // La clase DetalleActividadActivity debe crearse en un bloque posterior
         val intent = Intent(this, DetalleActividadActivity::class.java).apply {
             putExtra(EXTRA_ACTIVIDAD_ID, actividadId)
         }
         startActivity(intent)
     }
 }
-

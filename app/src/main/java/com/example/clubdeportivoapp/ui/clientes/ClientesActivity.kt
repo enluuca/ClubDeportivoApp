@@ -16,6 +16,7 @@ import com.example.clubdeportivoapp.data.model.Cliente
 import java.util.Locale
 
 /**
+ * [Clase de Nivel Intermedio]
  * Actividad para la Gestión y Listado de Clientes (Socios y NoSocios).
  * Carga la lista, maneja la búsqueda y la navegación.
  */
@@ -37,27 +38,35 @@ class ClientesActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_clientes)
 
-        // Inicialización de DAO
+        // 1. Inicialización del DAO
         clienteDao = ClienteDao(this)
 
-        // Referencias de UI (Corregidas para coincidir con activity_clientes.xml)
-        rvClientes = findViewById(R.id.rv_clientes) // Usando ID correcto
+        // 2. Referencias de UI (Corregidas para coincidir con activity_clientes.xml)
+        rvClientes = findViewById(R.id.rv_clientes)
         tvEmptyState = findViewById(R.id.tv_empty_state)
         etSearchCliente = findViewById(R.id.et_search_cliente)
-        btnAddCliente = findViewById(R.id.btn_add_cliente) // Usando ID correcto
+        btnAddCliente = findViewById(R.id.btn_add_cliente)
 
         setupRecyclerView()
         setupSearchListener()
         setupAddButton()
     }
 
+    /**
+     * Configura el RecyclerView y el Adapter.
+     * ✅ AJUSTE CLAVE: Se pasa el clienteDao al constructor del Adapter.
+     */
     private fun setupRecyclerView() {
-        clientesAdapter = ClientesAdapter(allClientes) { cliente ->
-            navigateToDetalleCliente(cliente.id)
-        }
+        clientesAdapter = ClientesAdapter(
+            clientes = allClientes,
+            onItemClicked = { cliente -> navigateToDetalleCliente(cliente.id) },
+            clienteDao = clienteDao // Inyecta la dependencia del DAO
+        )
         rvClientes.layoutManager = LinearLayoutManager(this)
         rvClientes.adapter = clientesAdapter
     }
+
+    // (Resto de funciones omitidas por brevedad en la revisión, se mantienen iguales)
 
     private fun setupSearchListener() {
         etSearchCliente.doAfterTextChanged { text ->

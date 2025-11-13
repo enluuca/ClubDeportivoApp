@@ -14,6 +14,7 @@ import com.example.clubdeportivoapp.data.model.Cliente
 import com.example.clubdeportivoapp.ui.clientes.ClientesAdapter // Reutilizamos el adaptador de clientes
 
 /**
+ * [Clase de Nivel Intermedio]
  * Actividad para mostrar reportes y listados.
  */
 class ListadosActivity : AppCompatActivity() {
@@ -23,13 +24,14 @@ class ListadosActivity : AppCompatActivity() {
     private lateinit var cardReporteMorosos: CardView
     private lateinit var tvReporteTitle: TextView
     private lateinit var clientesAdapter: ClientesAdapter
-    private lateinit var tvEmptyState: TextView // Necesitas añadir este TextView al layout si quieres usarlo
+    private lateinit var tvEmptyState: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_listados)
         supportActionBar?.title = "Reportes"
 
+        // Inicializar el DAO
         clienteDao = ClienteDao(this)
 
         initializeViews()
@@ -41,22 +43,25 @@ class ListadosActivity : AppCompatActivity() {
         rvResultado = findViewById(R.id.rv_reporte_resultado)
         cardReporteMorosos = findViewById(R.id.card_reporte_morosos)
         tvReporteTitle = findViewById(R.id.tv_reporte_title)
-        // Puedes usar el tv_reporte_title como un mensaje de "vacío" o añadir un TextView separado
+        // [Nota]: El TextView tvEmptyState no se inicializa aquí ya que no está en el XML proporcionado.
     }
 
     private fun setupRecyclerView() {
-        // Reutilizamos el adaptador y el item de lista de clientes
-        clientesAdapter = ClientesAdapter(emptyList()) { cliente ->
-            Toast.makeText(this, "Cliente seleccionado: ${cliente.nombre}", Toast.LENGTH_SHORT).show()
-            // Aquí se podría navegar a la edición si fuera necesario
-        }
+        // ✅ CORRECCIÓN CLAVE: Se pasa el clienteDao al constructor del adaptador,
+        // y se elimina la línea duplicada que causaba el error de sintaxis.
+        clientesAdapter = ClientesAdapter(
+            clientes = emptyList(),
+            onItemClicked = { cliente ->
+                Toast.makeText(this, "Cliente seleccionado: ${cliente.nombre}", Toast.LENGTH_SHORT).show()
+            },
+            clienteDao = clienteDao // Dependencia necesaria para verificar morosidad en el Adapter
+        )
         rvResultado.layoutManager = LinearLayoutManager(this)
         rvResultado.adapter = clientesAdapter
     }
 
     private fun setupListeners() {
         cardReporteMorosos.setOnClickListener {
-            // Ejecutar el reporte de Morosos
             loadReporteMorosos()
         }
     }
@@ -66,7 +71,7 @@ class ListadosActivity : AppCompatActivity() {
      */
     private fun loadReporteMorosos() {
         try {
-            // Llama a la función del DAO (añadida en el ClienteDao.kt)
+            // Llama a la función de reporte del DAO (getClientesMorosos)
             val morosos: List<Cliente> = clienteDao.getClientesMorosos()
 
             tvReporteTitle.text = "Clientes Morosos (${morosos.size} encontrados)"
@@ -74,7 +79,6 @@ class ListadosActivity : AppCompatActivity() {
 
             if (morosos.isEmpty()) {
                 Toast.makeText(this, "¡Felicidades! No hay clientes morosos.", Toast.LENGTH_LONG).show()
-                // Si tienes un tvEmptyState en el layout, podrías mostrarlo aquí.
             }
         } catch (e: Exception) {
             Toast.makeText(this, "Error al generar reporte: ${e.message}", Toast.LENGTH_LONG).show()

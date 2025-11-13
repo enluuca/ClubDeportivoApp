@@ -9,24 +9,29 @@ import com.example.clubdeportivoapp.data.model.Cliente
 import com.example.clubdeportivoapp.data.model.NoSocio
 import com.example.clubdeportivoapp.data.model.Socio
 import android.util.Log // Asegúrate de tener esta importación para Log
-import java.text.SimpleDateFormat // Importación requerida
+import java.text.SimpleDateFormat // Importación requerida para manejo de fechas
 import java.util.Date // Importación requerida
 import java.util.Locale // Importación requerida
 
 /**
+ * [Clase de Nivel Intermedio/Avanzado]
  * Clase de Acceso a Datos (DAO) para Cliente, Socio y NoSocio.
- * CONTIENE TODAS LAS OPERACIONES CRUD Y LÓGICA DE PERSISTENCIA ATÓMICA.
+ * * Responsable de: Centralizar la lógica de persistencia y las consultas complejas.
  */
 class ClienteDao(context: Context) {
 
     private val dbHelper: DatabaseHelper = DatabaseHelper(context)
 
-    // Función auxiliar: Devuelve la base de datos de solo lectura
+    // Función auxiliar: Devuelve la base de datos de solo lectura (ReadableDatabase)
     private val db: SQLiteDatabase
         get() = dbHelper.readableDatabase
 
     // --- Conversión de Cursor a Modelo ---
 
+    /**
+     * Convierte una fila del Cursor en un objeto Cliente.
+     * Asegura que todos los 10 campos se mapeen correctamente.
+     */
     private fun cursorToCliente(cursor: Cursor): Cliente {
         return Cliente(
             id = cursor.getInt(cursor.getColumnIndexOrThrow(DatabaseHelper.CLIENTE_COL_ID)),
@@ -36,12 +41,16 @@ class ClienteDao(context: Context) {
             fechaNacimiento = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.CLIENTE_COL_FECHA_NACIMIENTO)),
             direccion = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.CLIENTE_COL_DIRECCION)),
             telefono = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.CLIENTE_COL_TELEFONO)),
+            // Convierte INTEGER (1/0) a Boolean
             aptoFisico = cursor.getInt(cursor.getColumnIndexOrThrow(DatabaseHelper.CLIENTE_COL_APTO_FISICO)) > 0,
             asociarse = cursor.getInt(cursor.getColumnIndexOrThrow(DatabaseHelper.CLIENTE_COL_ASOCIARSE)) > 0,
             fechaAlta = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.CLIENTE_COL_FECHA_ALTA))
         )
     }
 
+    /**
+     * Convierte una fila del Cursor en un objeto Socio.
+     */
     private fun cursorToSocio(cursor: Cursor): Socio {
         return Socio(
             id = cursor.getInt(cursor.getColumnIndexOrThrow(DatabaseHelper.SOCIO_COL_CLIENTE_ID)),
@@ -53,8 +62,9 @@ class ClienteDao(context: Context) {
         )
     }
 
-    // --- Métodos de Consulta (Ya estaban correctos) ---
+    // --- Métodos de Consulta ---
 
+    /** Obtiene todos los clientes ordenados por apellido. */
     fun getAllClientes(): List<Cliente> {
         val clientes = mutableListOf<Cliente>()
         val cursor = db.rawQuery("SELECT * FROM ${DatabaseHelper.TABLE_CLIENTE} ORDER BY ${DatabaseHelper.CLIENTE_COL_APELLIDO} ASC", null)
@@ -68,6 +78,7 @@ class ClienteDao(context: Context) {
         return clientes
     }
 
+    /** Obtiene un cliente por su ID. */
     fun getClienteById(id: Int): Cliente? {
         val cursor = db.query(
             DatabaseHelper.TABLE_CLIENTE,
@@ -86,6 +97,7 @@ class ClienteDao(context: Context) {
         return cliente
     }
 
+    /** Obtiene un cliente por su DNI. */
     fun getClienteByDni(dni: Int): Cliente? {
         val cursor = db.query(
             DatabaseHelper.TABLE_CLIENTE,
@@ -104,6 +116,7 @@ class ClienteDao(context: Context) {
         return cliente
     }
 
+    /** Obtiene los detalles de membresía de un Socio por su ID de Cliente. */
     fun getSocioByClienteId(id: Int): Socio? {
         val cursor = db.query(
             DatabaseHelper.TABLE_SOCIO,
@@ -120,21 +133,20 @@ class ClienteDao(context: Context) {
         }
         cursor.close()
         return socio
-
-
     }
 
     // ====================================================================
-    // --- MÉTODOS DE MODIFICACIÓN (AÑADIDOS/CORREGIDOS) ---
+    // --- MÉTODOS DE MODIFICACIÓN (TRANSACCIONALES) ---
     // ====================================================================
 
     /**
-     * ✅ FUNCIÓN COMPLETA: Inserta Cliente y sus datos de membresía.
-     * Resuelve: Unresolved reference 'insertCliente' en DetalleClienteActivity.kt
+     * Inserta un nuevo Cliente y, si corresponde, sus datos de membresía (Socio/NoSocio)
+     * en una transacción atómica.
+     * @return El ID de la nueva fila de Cliente, o -1 si falla la transacción.
      */
     fun insertCliente(cliente: Cliente, socioData: Socio?, noSocioData: NoSocio?): Long {
         val writableDb = dbHelper.writableDatabase
-        writableDb.beginTransaction()
+        writableDb.beginTransaction() // Inicia la transacción
 
         try {
             // 1. Insertar en Cliente
@@ -142,6 +154,7 @@ class ClienteDao(context: Context) {
                 put(DatabaseHelper.CLIENTE_COL_DNI, cliente.dni)
                 put(DatabaseHelper.CLIENTE_COL_NOMBRE, cliente.nombre)
                 put(DatabaseHelper.CLIENTE_COL_APELLIDO, cliente.apellido)
+                // [Resto de los campos]
                 put(DatabaseHelper.CLIENTE_COL_FECHA_NACIMIENTO, cliente.fechaNacimiento)
                 put(DatabaseHelper.CLIENTE_COL_DIRECCION, cliente.direccion)
                 put(DatabaseHelper.CLIENTE_COL_TELEFONO, cliente.telefono)
@@ -153,27 +166,26 @@ class ClienteDao(context: Context) {
             val clienteId = writableDb.insert(DatabaseHelper.TABLE_CLIENTE, null, values)
 
             if (clienteId > 0) {
-                // 2. Insertar datos de Membresía usando el nuevo ID
+                // 2. Insertar datos de Membresía usando el ID de Cliente
                 if (socioData != null) {
                     insertSocio(socioData.copy(id = clienteId.toInt()), writableDb)
                 } else if (noSocioData != null) {
                     insertNoSocio(noSocioData.copy(id = clienteId.toInt()), writableDb)
                 }
-                writableDb.setTransactionSuccessful()
+                writableDb.setTransactionSuccessful() // Confirma la transacción
                 return clienteId
             }
             return -1L
         } catch (e: Exception) {
             Log.e("ClienteDao", "Error insertando cliente y membresía: ${e.message}")
-            return -1L
+            return -1L // Retorna error
         } finally {
-            writableDb.endTransaction()
+            writableDb.endTransaction() // Finaliza la transacción
         }
     }
 
     /**
-     * ✅ FUNCIÓN COMPLETA: Actualiza Cliente.
-     * Resuelve: Unresolved reference 'updateCliente' en DetalleClienteActivity.kt
+     * Actualiza los datos de la tabla Cliente (solo los campos base).
      */
     fun updateCliente(cliente: Cliente): Int {
         val writableDb = dbHelper.writableDatabase
@@ -198,8 +210,8 @@ class ClienteDao(context: Context) {
     }
 
     /**
-     * ✅ FUNCIÓN COMPLETA: Actualiza la fecha de vencimiento de la cuota del socio.
-     * Resuelve: Unresolved reference 'updateSocioVencimiento' en PagosActivity.kt
+     * Actualiza solo la fecha de vencimiento de la cuota en la tabla Socio.
+     * Utilizada después de registrar un pago de cuota.
      */
     fun updateSocioVencimiento(idSocio: Int, newDate: String): Int {
         val writableDb = dbHelper.writableDatabase
@@ -217,7 +229,7 @@ class ClienteDao(context: Context) {
         return rowsAffected
     }
 
-    // --- Funciones auxiliares de inserción (necesarias para insertCliente) ---
+    // --- Funciones auxiliares de inserción ---
 
     private fun insertSocio(socio: Socio, db: SQLiteDatabase) {
         val values = ContentValues().apply {
@@ -237,17 +249,20 @@ class ClienteDao(context: Context) {
         db.insert(DatabaseHelper.TABLE_NO_SOCIO, null, values)
     }
 
+    // --- Lógica de Reportes ---
+
+    /**
+     * Obtiene una lista de Clientes que son Socios y cuya cuota está vencida (Morosos).
+     * Utiliza una consulta SQL con JOIN para eficiencia.
+     */
     fun getClientesMorosos(): List<Cliente> {
         val morosos = mutableListOf<Cliente>()
         val db = dbHelper.readableDatabase
 
-        // 1. Obtener la fecha actual en formato YYYY-MM-DD
-        // Usamos Locale.US para asegurar el formato estándar YYYY-MM-DD que es comparable en SQLite
+        // Obtener la fecha actual en formato YYYY-MM-DD para la comparación
         val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
 
-        // 2. Consulta SQL con JOIN:
-        // Buscamos Clientes (T1) que tienen un registro en Socio (T2)
-        // Y donde la fecha de vencimiento (FECHA_VENCIMIENTO_CUOTA) es anterior a hoy (< ?)
+        // Consulta SQL con JOIN: Clientes (T1) + Socio (T2) donde la fecha de vencimiento es < a hoy.
         val query = """
             SELECT T1.* FROM ${DatabaseHelper.TABLE_CLIENTE} T1 
             INNER JOIN ${DatabaseHelper.TABLE_SOCIO} T2 
@@ -261,12 +276,11 @@ class ClienteDao(context: Context) {
 
         with(cursor) {
             while (moveToNext()) {
-                // Reutilizamos la función de conversión a Cliente
                 morosos.add(cursorToCliente(this))
             }
         }
         cursor.close()
-        // No cerramos 'db' aquí ya que es 'readableDatabase' y se gestiona automáticamente
+        // No cerramos 'db' aquí ya que es de solo lectura y el sistema lo gestiona.
         return morosos
     }
 }
